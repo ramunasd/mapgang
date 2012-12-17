@@ -1,0 +1,6 @@
+#!/usr/bin/python
+
+MAX_ZOOM = 18
+METATILE = 8
+META_MAGIC = "META"
+TILE_SIZE = 256
