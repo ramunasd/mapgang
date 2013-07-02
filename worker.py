@@ -4,22 +4,13 @@ import sys, os, time
 import logging
 import threading
 
-from cStringIO import StringIO
-from ConfigParser import ConfigParser
-
 try:
     from mapgang.session import Client
     from mapgang.renderer import Renderer
+    from mapgang.config import Config
 except ImportError as e:
     print e
     sys.exit()
-
-def read_styles(config):
-    styles = {}
-    for xmlname in config.sections():
-        if xmlname != "renderd" and xmlname != "mapnik":
-            styles[xmlname] = config.get(xmlname, "xml")
-    return styles
 
 def start_renderers(num_threads, job_server, styles, stop):
     for i in range(num_threads):
@@ -35,25 +26,13 @@ if __name__ == "__main__":
     except KeyError:
         cfg_file = "/etc/mapgang.conf"
 
-    default_cfg = StringIO("""
-[renderd]
-socketname=/tmp/mod_tile.sock
-num_threads=1
-tile_dir=/var/lib/mod_tile
-worker_threads=1
-log_file=
-log_level=20
-""")
+    config = Config(cfg_file)
 
-    config = ConfigParser()
-    config.readfp(default_cfg)
-    config.read(cfg_file)
-
-    num_threads = config.getint("renderd", "worker_threads")
-    job_server  = config.get("renderd", "job_server")
-    password    = config.get("renderd", "job_password")
+    num_threads = config.getint("worker", "threads")
+    job_server  = config.get("master", "job_server")
+    password    = config.get("master", "job_password")
     
-    logging.basicConfig(filename=config.get("renderd","log_file"),level=config.getint("renderd","log_level"),format='%(asctime)s %(levelname)s:%(message)s')
+    logging.basicConfig(filename=config.get("master", "log_file"), level=config.getint("master", "log_level"), format='%(asctime)s %(levelname)s:%(message)s')
     
     try:
         #session_client = Client([job_server])
@@ -65,7 +44,7 @@ log_level=20
         #styles = session_client.getStyles(session)
         #print "got styles %s" % styles
 
-        styles = read_styles(config)
+        styles = config.getStyles()
         stop = threading.Event()
         start_renderers(num_threads, job_server, styles, stop)
         while(True):
@@ -74,6 +53,7 @@ log_level=20
         logging.warning("terminating...")
         stop.set()
         main_thread = threading.currentThread()
+        # shutdown gracefully
         for t in threading.enumerate():
             if t is main_thread:
                 continue

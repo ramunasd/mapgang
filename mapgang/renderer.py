@@ -30,7 +30,7 @@ class Renderer(GearmanWorker):
         self.stop = stop
 
         for style in styles:
-            #print "Creating Mapnik map object for %s with %s" % (xmlname, styles[xmlname])
+            logging.debug("Creating Mapnik map object for %s with %s" % (style, styles[style]))
             m = mapnik.Map(TILE_SIZE, TILE_SIZE)
             self.maps[style] = m
             # Load XML style

@@ -4,7 +4,6 @@ import sys, os, struct
 import thread, threading
 import json
 import ConfigParser
-from cStringIO import StringIO
 
 try:
     from gearman import GearmanClient
@@ -16,6 +15,7 @@ except ImportError:
 from mapgang.constants import *
 from mapgang.protocol import protocol
 from mapgang.session import Issuer
+from mapgang.config import Config
 
 class MetaTile():
     path = '/var/lib/mod_tile'
@@ -78,7 +78,6 @@ class RequestThread(GearmanClient):
 
     def save_tiles(self, style, x, y, z, tiles):
         # Calculate the meta tile size to use for this zoom level
-        size = min(METATILE, 1 << z)
         tile_path = MetaTile.get_path(style, x, y, z)
         tmp = "%s.tmp.%d" % (tile_path, thread.get_ident())
         f = open(tmp, "w")
@@ -207,13 +206,6 @@ def display_config(config):
             xml = config.get(xmlname, "xml")
             print "    URI(%s) = XML(%s)" % (uri, xml)
 
-def read_styles(config):
-    styles = {}
-    for xmlname in config.sections():
-        if xmlname != "renderd" and xmlname != "mapnik":
-            styles[xmlname] = config.get(xmlname, "xml")
-    return styles
-
 def create_session(password, styles, host_list):
     import base64
     session = base64.b64encode(os.urandom(16))
@@ -230,24 +222,15 @@ if __name__ == "__main__":
     except KeyError:
         cfg_file = "/etc/mapgang.conf"
 
-    default_cfg = StringIO("""
-[renderd]
-socketname=/tmp/mod_tile.sock
-num_threads=1
-tile_dir=/var/lib/mod_tile
-""")
-
-    config = ConfigParser.ConfigParser()
-    config.readfp(default_cfg)
-    config.read(cfg_file)
+    config = Config(cfg_file)
     display_config(config)
-    styles = read_styles(config)
+    styles = config.getStyles()
 
-    num_threads    = config.getint("renderd", "num_threads")
-    renderd_socket = config.get("renderd", "socketname")
-    tile_dir       = config.get("renderd", "tile_dir")
-    job_server     = config.get("renderd", "job_server")
-    password       = config.get("renderd", "job_password")
+    num_threads    = config.getint("master", "threads")
+    renderd_socket = config.get("master", "socketname")
+    tile_dir       = config.get("master", "tile_dir")
+    job_server     = config.get("master", "job_server")
+    password       = config.get("master", "job_password")
 
     MetaTile.path = tile_dir
     sessionId = create_session(password, styles, [job_server])
