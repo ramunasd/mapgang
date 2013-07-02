@@ -64,7 +64,8 @@ class Renderer(GearmanWorker):
         meta_size = TILE_SIZE * size
         m.resize(meta_size, meta_size)
         m.zoom_to_box(bbox)
-        m.buffer_size = 128
+        if(m.buffer_size == 0):
+            m.buffer_size = 128
         im = mapnik.Image(meta_size, meta_size);
         mapnik.render(m, im)
         return im
