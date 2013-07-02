@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
-import sys, os, struct, time, errno
+import sys, os, struct
 import thread, threading
-import socket
 import json
 import ConfigParser
 from cStringIO import StringIO
@@ -71,7 +70,7 @@ class RequestThread(GearmanClient):
                 return False
             return self.save_tiles(style, x, y, z, response.result)
         elif response.timed_out:
-            print "Job %s timed out" % rsponse.unique
+            print "Job %s timed out" % response.unique
         elif response.state == JOB_UNKNOWN:
             print "Job %s connection failed!" % response.unique
             

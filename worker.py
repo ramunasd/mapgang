@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, struct, time, errno
+import sys, os, time
 import logging
 import threading
 

@@ -2,6 +2,7 @@
 
 import os
 import socket
+import errno
 import threading
 import SocketServer
 
@@ -14,7 +15,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
            and (request.commandStatus != protocol.Dirty) \
            and request.commandStatus != protocol.RenderPrio \
            and request.commandStatus != protocol.RenderBulk:
-               return
+            return
 
         if request.bad_request():
             if (request.commandStatus == protocol.Render):
@@ -64,7 +65,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
 class ThreadedUnixStreamServer(SocketServer.ThreadingMixIn, SocketServer.UnixStreamServer):
     def __init__(self, address, queue_handler, handler):
         if(os.path.exists(address)):
-           os.unlink(address)
+            os.unlink(address)
         self.address = address
         self.queue_handler = queue_handler
         SocketServer.UnixStreamServer.__init__(self, address, handler)

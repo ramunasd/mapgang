@@ -80,5 +80,5 @@ class ProtocolPacketV2(ProtocolPacket):
         try:
             self.dest.send(data)
         except socket.error, e:
-               if e[0] != errno.EBADF:
-                   raise
+            if e[0] != errno.EBADF:
+                raise

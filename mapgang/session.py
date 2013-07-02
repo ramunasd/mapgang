@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import sys
+
 try:
     from gearman import GearmanClient, GearmanWorker
     from gearman.constants import PRIORITY_NONE, PRIORITY_LOW, PRIORITY_HIGH, JOB_UNKNOWN, JOB_PENDING

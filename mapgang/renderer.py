@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, struct, time, errno
+import sys, struct, time
 import logging
 import threading
 import json
@@ -74,7 +74,7 @@ class Renderer(GearmanWorker):
         logging.debug("Got job: %s %d/%d/%d", style, z, x, y)
         
         try:
-            map = self.maps[style]
+            m = self.maps[style]
         except KeyError:
             logging.error("No map for '%s'", style)
             self.send_job_failure(job)
@@ -83,7 +83,7 @@ class Renderer(GearmanWorker):
         s = time.clock()
         
         try:
-            im = self.render_image(style, map, x, y, z)
+            im = self.render_image(style, m, x, y, z)
             size = min(METATILE, 1 << z)
             offset = len(META_MAGIC) + 4 * 4
             # Need to pre-compensate the offsets for the size of the offset/size table we are about to write
@@ -105,7 +105,7 @@ class Renderer(GearmanWorker):
                     offsets[mt] = offset
                     offset += len(tile)
         except Exception, e:
-            logging.crit(e)
+            logging.critical(e)
             self.send_job_failure(job)
             return
 
