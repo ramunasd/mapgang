@@ -16,37 +16,7 @@ from mapgang.constants import *
 from mapgang.protocol import protocol
 from mapgang.session import Issuer
 from mapgang.config import Config
-
-class MetaTile():
-    path = '/var/lib/mod_tile'
-
-    @staticmethod
-    def get_path(style, x, y, z):
-        mask = METATILE - 1
-        x &= ~mask
-        y &= ~mask
-        hashes = {}
-        for i in range(5):
-            hashes[i] = ((x & 0x0f) << 4) | (y & 0x0f)
-            x >>= 4
-            y >>= 4
-
-        path = "%s/%s/%d/%u/%u/%u/%u/%u.meta" % (MetaTile.path, style, z, hashes[4], hashes[3], hashes[2], hashes[1], hashes[0])
-        d = os.path.dirname(path)
-        if not os.path.exists(d):
-            try:
-                os.makedirs(d, 0777)
-            except OSError:
-                # Multiple threads can race when creating directories,
-                # ignore exception if the directory now exists
-                if not os.path.exists(d):
-                    raise
-        return path
-
-    @staticmethod
-    def get_header(self, x, y, z):
-        return struct.pack("4s4i", META_MAGIC, METATILE * METATILE, x, y, z)
-
+from mapgang.metatile import MetaTile
 
 class RequestThread(GearmanClient):
     def __init__(self, tile_path, styles, queue_handler, host_list):
@@ -198,14 +168,6 @@ def listener(address, queue_handler):
     # Loop forever servicing requests
     server.serve_forever()
 
-def display_config(config):
-    for xmlname in config.sections():
-        if xmlname != "renderd" and xmlname != "mapnik":
-            print "Layer name: %s" % xmlname
-            uri = config.get(xmlname, "uri")
-            xml = config.get(xmlname, "xml")
-            print "    URI(%s) = XML(%s)" % (uri, xml)
-
 def create_session(password, styles, host_list):
     import base64
     session = base64.b64encode(os.urandom(16))
@@ -223,7 +185,7 @@ if __name__ == "__main__":
         cfg_file = "/etc/mapgang.conf"
 
     config = Config(cfg_file)
-    display_config(config)
+    config.printout()
     styles = config.getStyles()
 
     num_threads    = config.getint("master", "threads")
@@ -234,10 +196,11 @@ if __name__ == "__main__":
 
     MetaTile.path = tile_dir
     sessionId = create_session(password, styles, [job_server])
-    queue_handler = RequestQueues()
+    queue_handler = RequestQueues(config.getint("master", "request_limit"), config.getint("master", "dirty_limit"))
     start_renderers(num_threads, tile_dir, styles, queue_handler, [job_server])
     try:
         listener(renderd_socket, queue_handler)
     except (KeyboardInterrupt, SystemExit):
         print "terminating..."
         sys.exit()
+

@@ -12,14 +12,6 @@ except ImportError as e:
     print e
     sys.exit()
 
-def start_renderers(num_threads, job_server, styles, stop):
-    for i in range(num_threads):
-        worker = Renderer([job_server], styles, stop)
-        worker_thread = threading.Thread(target=worker.work, args=(3.0,))
-        worker_thread.setDaemon(True)
-        worker_thread.start()
-        logging.info("Started worker thread %s", worker_thread.getName())
-
 if __name__ == "__main__":
     try:
         cfg_file = os.environ['RENDERD_CFG']
@@ -32,21 +24,19 @@ if __name__ == "__main__":
     job_server  = config.get("master", "job_server")
     password    = config.get("master", "job_password")
     
-    logging.basicConfig(filename=config.get("master", "log_file"), level=config.getint("master", "log_level"), format='%(asctime)s %(levelname)s:%(message)s')
+    logging.basicConfig(filename=config.get("master", "log_file"), level=config.getint("master", "log_level"), format='%(asctime)s %(levelname)s: %(message)s')
     
     try:
-        #session_client = Client([job_server])
-        #session  = session_client.getSession(password)
-        #if session == "":
-        #    print "Cannot start session"
-        #    sys.exit()
-        #print "got session %s" % session
-        #styles = session_client.getStyles(session)
-        #print "got styles %s" % styles
-
         styles = config.getStyles()
         stop = threading.Event()
-        start_renderers(num_threads, job_server, styles, stop)
+
+        for i in range(num_threads):
+            worker = Renderer([job_server], styles, stop)
+            worker_thread = threading.Thread(target=worker.work, args=(3.0,))
+            worker_thread.setDaemon(True)
+            worker_thread.start()
+            logging.info("Started worker thread %s", worker_thread.getName())
+        
         while(True):
             time.sleep(60)
     except (KeyboardInterrupt, SystemExit):
@@ -59,3 +49,4 @@ if __name__ == "__main__":
                 continue
             t.join(10)
         sys.exit()
+

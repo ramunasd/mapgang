@@ -11,6 +11,7 @@ try:
 
     from mapgang.constants import *
     from mapgang.projection import *
+    from mapgang.metatile import MetaTile
 
     from gearman import GearmanWorker
     from gearman.constants import PRIORITY_NONE, JOB_UNKNOWN, JOB_PENDING, JOB_CREATED, JOB_FAILED, JOB_COMPLETE
@@ -113,7 +114,7 @@ class Renderer(GearmanWorker):
         # meta tile file
         meta = StringIO()
         # write header
-        meta.write(struct.pack("4s4i", META_MAGIC, METATILE * METATILE, x, y, z))
+        meta.write(Metatile.get_header(x, y, z))
         # Write out the offset/size table
         for mt in range(0, METATILE * METATILE):
             if mt in sizes:
@@ -127,3 +128,4 @@ class Renderer(GearmanWorker):
         
         logging.info("%s Done %u bytes in %.2fs: %s %d/%d/%d", threading.currentThread().getName(), meta.tell(), e, style, z, x, y)
         return meta.getvalue()
+
