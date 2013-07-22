@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys, os
+import logging
 import thread, threading
 import json
 
@@ -29,7 +30,7 @@ class RequestThread(GearmanClient):
         try:
             m = self.styles[style]
         except KeyError:
-            print "No map for: '%s'" % style
+            logging.error("No map for: '%s'", style)
             return False
         
         response = self.submit_job("render", json.dumps(t), priority=PRIORITY_HIGH, background=False)
@@ -38,9 +39,9 @@ class RequestThread(GearmanClient):
                 return False
             return self.save_tiles(style, x, y, z, response.result)
         elif response.timed_out:
-            print "Job %s timed out" % response.unique
+            logging.warning("Job %s timed out", response.unique)
         elif response.state == JOB_UNKNOWN:
-            print "Job %s connection failed!" % response.unique
+            logging.warning("Job %s connection failed!", response.unique)
             
         return False;
 
@@ -53,7 +54,7 @@ class RequestThread(GearmanClient):
         f.close()
         os.rename(tmp, tile_path)
         os.chmod(tile_path, 0666)
-        print "Wrote: %s" % tile_path
+        logging.debug("Wrote: %s", tile_path)
         return True
 
     def loop(self):
@@ -75,8 +76,8 @@ class RequestThread(GearmanClient):
 class RequestQueues:
     def __init__(self, request_limit = 32, dirty_limit = 1000):
         # We store requests in several lists
-        # - Incoming render requests are initally put into the request queue
-        # If the request queue is full then the new request is demoted to the dirty queue
+        # - Incoming render requests are initially put into the request queue
+        # If the request queue is full then the new request is assigned to the dirty queue
         # - Incoming 'dirty' requests are put into the dirty queue, or dropped if this is full
         # - The render queue holds the requests which are in progress by the render threads
         self.requests = {}
@@ -129,7 +130,7 @@ class RequestQueues:
                 try:
                     item = self.dirties.popitem()
                 except KeyError:
-                    print "Odd, queues empty"
+                    logging.debug("Odd, queues empty")
                     return
 
             t = item[0]
@@ -146,7 +147,7 @@ class RequestQueues:
             return self.rendering.pop(t)
         except KeyError:
             # Should never happen. It implies the requests queues are broken
-            print "WARNING: Failed to locate request in rendering list!"
+            logging.warning("Failed to locate request in rendering list!")
         finally:
             self.not_empty.release()
 
@@ -157,7 +158,7 @@ def start_renderers(num_threads, tile_path, styles, queue_handler, host_list):
         render_thread = threading.Thread(target=renderer.loop)
         render_thread.setDaemon(True)
         render_thread.start()
-        print "Started render thread %s" % render_thread.getName()
+        logging.info("Started request thread %s", render_thread.getName())
 
 def listener(address, queue_handler):
     from mapgang.threadedSocket import ThreadedUnixStreamServer, ThreadedUnixStreamHandler
@@ -173,7 +174,7 @@ def create_session(password, styles, host_list):
     session_thread = threading.Thread(target=issuer.work)
     session_thread.setDaemon(True)
     session_thread.start()
-    print "Started session thread"
+    logging.info("Started session thread")
     return session
 
 if __name__ == "__main__":
@@ -185,6 +186,8 @@ if __name__ == "__main__":
     config = Config(cfg_file)
     config.printout()
     styles = config.getStyles()
+    
+    logging.basicConfig(filename=config.get("master", "log_file"), level=config.getint("master", "log_level"), format='%(asctime)s %(levelname)s: %(message)s')
 
     num_threads    = config.getint("master", "threads")
     renderd_socket = config.get("master", "socketname")
@@ -199,6 +202,6 @@ if __name__ == "__main__":
     try:
         listener(renderd_socket, queue_handler)
     except (KeyboardInterrupt, SystemExit):
-        print "terminating..."
+        logging.warning("terminating...")
         sys.exit()
 

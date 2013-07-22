@@ -3,6 +3,7 @@
 import os
 import socket
 import errno
+import logging
 import threading
 import SocketServer
 
@@ -10,7 +11,7 @@ from mapgang.protocol import protocol, ProtocolPacketV2
 
 class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
     def rx_request(self, request):
-        #print request.commandStatus
+        logging.debug(request.commandStatus)
         if (request.commandStatus != protocol.Render) \
            and (request.commandStatus != protocol.Dirty) \
            and request.commandStatus != protocol.RenderPrio \
@@ -23,7 +24,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
             return
 
         cur_thread = threading.currentThread()
-        print "%s: xml(%s) z(%d) x(%d) y(%d)" % (cur_thread.getName(), request.xmlname, request.z, request.x, request.y)
+        logging.debug("%s: xml(%s) z(%d) x(%d) y(%d)", cur_thread.getName(), request.xmlname, request.z, request.x, request.y)
 
         status = self.server.queue_handler.add(request)
         if status in ("rendering", "requested"):
@@ -39,14 +40,13 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         cur_thread = threading.currentThread()
         max_len = ProtocolPacketV2().len()
-        #print "Max protocol data length: %u " % max_len
 
         while True:
             try:
                 data = self.request.recv(max_len)
             except socket.error, e:
                 if e[0] == errno.ECONNRESET:
-                    print "Connection reset by peer"
+                    logging.info("Connection reset by peer")
                     break
                 else:
                     raise
@@ -56,10 +56,10 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 req_v2.receive(data, self.request)
                 self.rx_request(req_v2)
             elif len(data) == 0:
-                print "%s: Connection closed" % cur_thread.getName()
+                logging.info("%s: Connection closed", cur_thread.getName())
                 break
             else:
-                print "Invalid request length %d" % len(data)
+                logging.warn("Invalid request length %d", len(data))
                 break
 
 class ThreadedUnixStreamServer(SocketServer.ThreadingMixIn, SocketServer.UnixStreamServer):

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys
+import logging
 
 try:
     from gearman import GearmanClient, GearmanWorker
@@ -8,7 +9,7 @@ try:
     
     import json
 except ImportError:
-    print "Missing Gearman client"
+    logging.critical("Missing Gearman client")
     sys.exit()
 
 class Client(GearmanClient):
@@ -41,4 +42,3 @@ class Issuer(GearmanWorker):
         if job.data != self.session:
             return ""
         return json.dumps(self.styles)
-    

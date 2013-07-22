@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import logging
+
 class MapnikStyle:
     def __init__(self, name, filename):
         self.name = name
@@ -9,7 +11,7 @@ class MapnikStyle:
     def load(self):
         f = open(self.filename, 'r')
         self.content = f.read()
-        print "style %s loaded" % self.name
+        logging.info("style %s loaded", self.name)
 
     def getCompacted(self):
         return self.content

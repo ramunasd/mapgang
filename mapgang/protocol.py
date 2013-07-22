@@ -3,7 +3,8 @@
 import struct
 import socket
 import errno
-from mapgang.constants import *
+import logging
+from mapgang.constants import MAX_ZOOM, METATILE
 
 class protocol:
     # ENUM values for commandStatus field in protocol packet
@@ -58,9 +59,9 @@ class ProtocolPacketV2(ProtocolPacket):
         version, request, x, y, z, xmlname = struct.unpack(self.fields, data)
 
         if version != 2:
-            print "Received V2 packet with incorect version %d" % version
+            logging.warn("Received V2 packet with incorect version %d", version)
         else:
-            #print "Got V2 request, command(%d), xmlname(%s), x(%d), y(%d), z(%d)" % (request, xmlname, x, y, z)
+            logging.debug("Got V2 request, command(%d), xmlname(%s), x(%d), y(%d), z(%d)", request, xmlname, x, y, z)
             self.commandStatus = request
             self.x = x
             self.y = y

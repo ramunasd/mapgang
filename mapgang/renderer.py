@@ -114,7 +114,7 @@ class Renderer(GearmanWorker):
         # meta tile file
         meta = StringIO()
         # write header
-        meta.write(Metatile.get_header(x, y, z))
+        meta.write(MetaTile.get_header(x, y, z))
         # Write out the offset/size table
         for mt in range(0, METATILE * METATILE):
             if mt in sizes:
