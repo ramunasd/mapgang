@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-import struct
+import os, struct
+from mapgang.constants import METATILE, META_MAGIC
 
 class MetaTile():
     path = '/var/lib/mod_tile'

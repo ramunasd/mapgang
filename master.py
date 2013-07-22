@@ -1,9 +1,8 @@
 #!/usr/bin/python
 
-import sys, os, struct
+import sys, os
 import thread, threading
 import json
-import ConfigParser
 
 try:
     from gearman import GearmanClient
@@ -12,7 +11,6 @@ except ImportError:
     print "Missing Gearman client"
     sys.exit()
 
-from mapgang.constants import *
 from mapgang.protocol import protocol
 from mapgang.session import Issuer
 from mapgang.config import Config
