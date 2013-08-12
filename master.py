@@ -7,7 +7,7 @@ import json
 
 try:
     from gearman import GearmanClient
-    from gearman.constants import PRIORITY_NONE, PRIORITY_LOW, PRIORITY_HIGH, JOB_UNKNOWN, JOB_PENDING
+    from gearman.constants import PRIORITY_NONE, PRIORITY_LOW, PRIORITY_HIGH, JOB_UNKNOWN
 except ImportError:
     print "Missing Gearman client"
     sys.exit()
@@ -18,6 +18,12 @@ from mapgang.config import Config
 from mapgang.metatile import MetaTile
 
 class RequestThread(GearmanClient):
+    priorities = {
+        protocol.RenderPrio: PRIORITY_HIGH,
+        protocol.RenderBulk: PRIORITY_LOW,
+        protocol.Dirty:      PRIORITY_LOW
+    }
+    
     def __init__(self, tile_path, styles, queue_handler, host_list):
         self.tile_path = tile_path
         self.queue_handler = queue_handler
@@ -25,15 +31,17 @@ class RequestThread(GearmanClient):
         GearmanClient.__init__(self, host_list)
         os.umask(0)
 
-    def render_request(self, t):
+    def render_request(self, t, request):
         (style, x, y, z) = t
-        try:
-            m = self.styles[style]
-        except KeyError:
+        
+        if not style in self.styles:
             logging.error("No map for: '%s'", style)
             return False
         
-        response = self.submit_job("render", json.dumps(t), priority=PRIORITY_HIGH, background=False)
+        response = self.submit_job("render_" + style,
+                                   json.dumps(t),
+                                   priority=self.get_priotity(request),
+                                   background=False)
         if response.complete:
             if response.result == "":
                 return False
@@ -56,16 +64,24 @@ class RequestThread(GearmanClient):
         os.chmod(tile_path, 0666)
         logging.debug("Wrote: %s", tile_path)
         return True
+    
+    def get_priotity(self, request):
+        if request.command in self.priorities:
+            return self.priorities[request.command]
+        
+        return PRIORITY_NONE
+        
 
     def loop(self):
         while True:
             #Fetch a meta-tile to render
-            r = self.queue_handler.fetch()
-            rendered = self.render_request(r)
+            item = self.queue_handler.fetch()
+            tile = item[0]
+            rendered = self.render_request(tile, item[1])
             # Retrieve all requests for this meta-tile
-            requests = self.queue_handler.pop_requests(r)
+            requests = self.queue_handler.pop_requests(tile)
             for request in requests:
-                if request.commandStatus in (protocol.Render, protocol.RenderPrio, protocol.RenderBulk):
+                if protocol.isRender(request.command):
                     if rendered == True:
                         request.send(protocol.Done)
                     else:
@@ -103,11 +119,11 @@ class RequestQueues:
                 self.dirties[t].append(request)
                 return "dirty"
             # If we've reached here then there are no existing requests for this tile
-            if (request.commandStatus in (protocol.Render, protocol.RenderPrio, protocol.RenderBulk)) and (len(self.requests) < self.request_limit):
+            if protocol.isRender(request.command) and len(self.requests) < self.request_limit:
                 self.requests[t] = [request]
                 self.not_empty.notify()
                 return "requested"
-            if len(self.dirties) < self.dirty_limit:
+            if protocol.isDirty(request.command) and len(self.dirties) < self.dirty_limit:
                 self.dirties[t] = [request]
                 self.not_empty.notify()
                 return "dirty"
@@ -135,7 +151,7 @@ class RequestQueues:
 
             t = item[0]
             self.rendering[t] = item[1]
-            return t
+            return item
         finally:
             self.not_empty.release()
 

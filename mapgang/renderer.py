@@ -10,11 +10,10 @@ try:
     import mapnik
 
     from mapgang.constants import *
-    from mapgang.projection import *
+    from mapgang.projection import SphericalProjection
     from mapgang.metatile import MetaTile
 
     from gearman import GearmanWorker
-    from gearman.constants import PRIORITY_NONE, JOB_UNKNOWN, JOB_PENDING, JOB_CREATED, JOB_FAILED, JOB_COMPLETE
 except ImportError as e:
     print e
     sys.exit()
@@ -29,6 +28,9 @@ class Renderer(GearmanWorker):
         self.maps = {}
         self.prj = {}
         self.stop = stop
+        
+        # Projects between tile pixel co-ordinates and LatLong (EPSG:4326)
+        self.tileproj = SphericalProjection(MAX_ZOOM)
 
         for style in styles:
             logging.debug("Creating Mapnik map object for %s with %s" % (style, styles[style]))
@@ -38,10 +40,7 @@ class Renderer(GearmanWorker):
             mapnik.load_map(m, styles[style], True)
             # Obtain <Map> projection
             self.prj[style] = mapnik.Projection(m.srs)
-
-        # Projects between tile pixel co-ordinates and LatLong (EPSG:4326)
-        self.tileproj = SphericalProjection(MAX_ZOOM)
-        self.register_task('render', render_job)
+            self.register_task("render_" + style, render_job);
 
     def after_poll(self, any_activity):
         if self.stop.is_set():

@@ -15,6 +15,14 @@ class protocol:
     NotDone = 4
     RenderPrio = 5
     RenderBulk = 6
+    
+    @staticmethod
+    def isRender(status):
+        return status in (protocol.Render, protocol.RenderPrio, protocol.RenderBulk)
+    
+    @staticmethod
+    def isDirty(status):
+        return (status == protocol.Dirty)
 
 class ProtocolPacket:
     def __init__(self, version, fields = ""):
@@ -25,7 +33,7 @@ class ProtocolPacket:
         self.z = 0
         self.mx = 0
         self.my = 0
-        self.commandStatus = protocol.Ignore
+        self.command = protocol.Ignore
         self.fields = fields
 
     def len(self):
@@ -59,10 +67,10 @@ class ProtocolPacketV2(ProtocolPacket):
         version, request, x, y, z, xmlname = struct.unpack(self.fields, data)
 
         if version != 2:
-            logging.warn("Received V2 packet with incorect version %d", version)
+            logging.warn("Received V2 packet with incorrect version %d", version)
         else:
-            logging.debug("Got V2 request, command(%d), xmlname(%s), x(%d), y(%d), z(%d)", request, xmlname, x, y, z)
-            self.commandStatus = request
+            logging.debug("Got V2 request, command(%d), style(%s), x(%d), y(%d), z(%d)", request, xmlname, x, y, z)
+            self.command = request
             self.x = x
             self.y = y
             self.z = z

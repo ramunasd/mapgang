@@ -5,7 +5,7 @@ import logging
 import threading
 
 try:
-    from mapgang.session import Client
+    #from mapgang.session import Client
     from mapgang.renderer import Renderer
     from mapgang.config import Config
 except ImportError as e:

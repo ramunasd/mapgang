@@ -11,15 +11,12 @@ from mapgang.protocol import protocol, ProtocolPacketV2
 
 class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
     def rx_request(self, request):
-        logging.debug(request.commandStatus)
-        if (request.commandStatus != protocol.Render) \
-           and (request.commandStatus != protocol.Dirty) \
-           and request.commandStatus != protocol.RenderPrio \
-           and request.commandStatus != protocol.RenderBulk:
+        logging.debug(request.command)
+        if (not protocol.isRender(request.command) and not protocol.isDirty(request.command)):
             return
 
         if request.bad_request():
-            if (request.commandStatus == protocol.Render):
+            if (protocol.isRender(request.command)):
                 request.send(protocol.NotDone)
             return
 
@@ -34,7 +31,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
             return
 
         # The tile won't be rendered soon, tell the requestor straight away
-        if (request.commandStatus == protocol.Render):
+        if (request.command == protocol.Render):
             request.send(protocol.NotDone)
 
     def handle(self):
