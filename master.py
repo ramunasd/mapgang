@@ -40,32 +40,34 @@ class RequestThread(GearmanClient):
         
         response = self.submit_job("render_" + style,
                                    json.dumps(t),
-                                   priority=self.get_priotity(request),
+                                   priority=PRIORITY_HIGH,
                                    background=False)
+
+	if response.state == JOB_UNKNOWN:
+            logging.warning("Job %s connection failed!", response.unique)
+            return False
+        if response.timed_out:
+            logging.warning("Job %s timed out", response.unique)
+            return False
+
         if response.complete:
-            if response.result == "":
+            if response.result == "" or response.result is None:
                 return False
             return self.save_tiles(style, x, y, z, response.result)
-        elif response.timed_out:
-            logging.warning("Job %s timed out", response.unique)
-        elif response.state == JOB_UNKNOWN:
-            logging.warning("Job %s connection failed!", response.unique)
-            
+
         return False;
 
     def save_tiles(self, style, x, y, z, tiles):
         # Calculate the meta tile size to use for this zoom level
         tile_path = MetaTile.get_path(style, x, y, z)
-        tmp = "%s.tmp.%d" % (tile_path, thread.get_ident())
-        f = open(tmp, "w")
-        f.write(tiles)
-        f.close()
-        os.rename(tmp, tile_path)
-        os.chmod(tile_path, 0666)
-        logging.debug("Wrote: %s", tile_path)
+        f = os.open(tile_path, os.O_WRONLY | os.O_CREAT)
+        os.write(f, tiles)
+        os.close(f)
+        logging.debug("Wrote meta tile %s", tile_path)
         return True
     
     def get_priotity(self, request):
+	print request.command
         if request.command in self.priorities:
             return self.priorities[request.command]
         
@@ -103,7 +105,6 @@ class RequestQueues:
         self.request_limit = request_limit
         self.dirty_limit = dirty_limit
         self.not_empty = threading.Condition()
-
 
     def add(self, request):
         self.not_empty.acquire()
@@ -200,8 +201,6 @@ if __name__ == "__main__":
         cfg_file = "/etc/mapgang.conf"
 
     config = Config(cfg_file)
-    config.printout()
-    styles = config.getStyles()
     
     logging.basicConfig(filename=config.get("master", "log_file"), level=config.getint("master", "log_level"), format='%(asctime)s %(levelname)s: %(message)s')
 
@@ -212,8 +211,9 @@ if __name__ == "__main__":
     password       = config.get("master", "job_password")
 
     MetaTile.path = tile_dir
-    sessionId = create_session(password, styles, [job_server])
+    #sessionId = create_session(password, styles, [job_server])
     queue_handler = RequestQueues(config.getint("master", "request_limit"), config.getint("master", "dirty_limit"))
+    styles = config.getStyles()
     start_renderers(num_threads, tile_dir, styles, queue_handler, [job_server])
     try:
         listener(renderd_socket, queue_handler)

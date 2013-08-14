@@ -69,7 +69,7 @@ class ProtocolPacketV2(ProtocolPacket):
         if version != 2:
             logging.warn("Received V2 packet with incorrect version %d", version)
         else:
-            logging.debug("Got V2 request, command(%d), style(%s), x(%d), y(%d), z(%d)", request, xmlname, x, y, z)
+            logging.debug("Got request - command(%d), style(%s), x(%d), y(%d), z(%d)", request, xmlname, x, y, z)
             self.command = request
             self.x = x
             self.y = y
@@ -91,3 +91,4 @@ class ProtocolPacketV2(ProtocolPacket):
         except socket.error, e:
             if e[0] != errno.EBADF:
                 raise
+

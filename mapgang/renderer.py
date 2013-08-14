@@ -33,7 +33,7 @@ class Renderer(GearmanWorker):
         self.tileproj = SphericalProjection(MAX_ZOOM)
 
         for style in styles:
-            logging.debug("Creating Mapnik map object for %s with %s" % (style, styles[style]))
+            logging.debug("Creating map object for %s using %s" % (style, styles[style]))
             m = mapnik.Map(TILE_SIZE, TILE_SIZE)
             self.maps[style] = m
             # Load XML style
@@ -72,7 +72,7 @@ class Renderer(GearmanWorker):
 
     def render_job(self, job):
         (style, x, y, z) = json.loads(job.data)
-        logging.debug("Got job: %s %d/%d/%d", style, z, x, y)
+        logging.debug("%s got job: %s %d/%d/%d", threading.currentThread().getName(), style, z, x, y)
         
         try:
             m = self.maps[style]
@@ -113,7 +113,7 @@ class Renderer(GearmanWorker):
         # meta tile file
         meta = StringIO()
         # write header
-        meta.write(MetaTile.get_header(x, y, z))
+        meta.write(struct.pack("4s4i", META_MAGIC, METATILE * METATILE, x, y, z))
         # Write out the offset/size table
         for mt in range(0, METATILE * METATILE):
             if mt in sizes:
@@ -123,8 +123,7 @@ class Renderer(GearmanWorker):
         # write tiles data
         tiles.seek(0)
         meta.write(tiles.read())
-        e = time.clock() - s
         
-        logging.info("%s Done %u bytes in %.2fs: %s %d/%d/%d", threading.currentThread().getName(), meta.tell(), e, style, z, x, y)
+        logging.info("%s completed: %s %d/%d/%d", threading.currentThread().getName(), style, z, x, y)
         return meta.getvalue()
 

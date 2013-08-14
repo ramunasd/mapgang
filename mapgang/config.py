@@ -11,10 +11,10 @@ class Config(ConfigParser):
     		"socketname": "/tmp/mod_tile.sock",
     		"tile_dir": "/var/lib/mod_tile",
     		"log_file": "",
-    		"log_level": "5",
-    		"threads": "32",
+    		"log_level": "10",
+    		"threads": "2",
     		"request_limit": "32",
-    		"dirty_limit": 1000
+    		"dirty_limit": "1000"
     	}
         # default worker options
         self._sections["worker"] = {
@@ -32,10 +32,10 @@ class Config(ConfigParser):
                 styles[name] = self.get(name, "xml")
         return styles
 
-    def printout(self, config):
-        for xmlname in config.sections():
-            if xmlname != "renderd" and xmlname != "mapnik":
+    def printout(self):
+        for xmlname in self.sections():
+            if xmlname not in ("master", "worker", "mapnik"):
                 logging.info("Layer name: %s", xmlname)
-                uri = config.get(xmlname, "uri")
-                xml = config.get(xmlname, "xml")
-                logging.info(" - URI(%s) = XML(%s)", uri, xml)
+                #uri = self.get(xmlname, "uri")
+#                xml = self.get(xmlname, "xml")
+#                logging.info(" - URI(%s) = XML(%s)", uri, xml)

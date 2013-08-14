@@ -11,7 +11,6 @@ from mapgang.protocol import protocol, ProtocolPacketV2
 
 class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
     def rx_request(self, request):
-        logging.debug(request.command)
         if (not protocol.isRender(request.command) and not protocol.isDirty(request.command)):
             return
 
@@ -21,18 +20,14 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
             return
 
         cur_thread = threading.currentThread()
-        logging.debug("%s: xml(%s) z(%d) x(%d) y(%d)", cur_thread.getName(), request.xmlname, request.z, request.x, request.y)
 
         status = self.server.queue_handler.add(request)
+
         if status in ("rendering", "requested"):
             # Request queued, response will be sent on completion
             return
         if status == protocol.Ignore:
             return
-
-        # The tile won't be rendered soon, tell the requestor straight away
-        if (request.command == protocol.Render):
-            request.send(protocol.NotDone)
 
     def handle(self):
         cur_thread = threading.currentThread()
@@ -47,7 +42,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                     break
                 else:
                     raise
-            #print "Got data: %s" % data
+
             if len(data) == max_len:
                 req_v2 = ProtocolPacketV2()
                 req_v2.receive(data, self.request)
@@ -68,3 +63,4 @@ class ThreadedUnixStreamServer(SocketServer.ThreadingMixIn, SocketServer.UnixStr
         SocketServer.UnixStreamServer.__init__(self, address, handler)
         self.daemon_threads = True
         os.chmod(address, 0666)
+
