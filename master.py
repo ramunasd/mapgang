@@ -2,7 +2,7 @@
 
 import sys, os
 import logging
-import thread, threading
+import threading
 import json
 
 try:
@@ -16,6 +16,7 @@ from mapgang.protocol import protocol
 from mapgang.session import Issuer
 from mapgang.config import Config
 from mapgang.metatile import MetaTile
+from mapgang.threadedSocket import ThreadedUnixStreamServer, ThreadedUnixStreamHandler
 
 class RequestThread(GearmanClient):
     priorities = {
@@ -43,7 +44,7 @@ class RequestThread(GearmanClient):
                                    priority=PRIORITY_HIGH,
                                    background=False)
 
-	if response.state == JOB_UNKNOWN:
+        if response.state == JOB_UNKNOWN:
             logging.warning("Job %s connection failed!", response.unique)
             return False
         if response.timed_out:
@@ -67,12 +68,10 @@ class RequestThread(GearmanClient):
         return True
     
     def get_priotity(self, request):
-	print request.command
         if request.command in self.priorities:
             return self.priorities[request.command]
         
         return PRIORITY_NONE
-        
 
     def loop(self):
         while True:
@@ -88,7 +87,6 @@ class RequestThread(GearmanClient):
                         request.send(protocol.Done)
                     else:
                         request.send(protocol.NotDone)
-
 
 
 class RequestQueues:
@@ -168,22 +166,6 @@ class RequestQueues:
         finally:
             self.not_empty.release()
 
-
-def start_renderers(num_threads, tile_path, styles, queue_handler, host_list):
-    for i in range(num_threads):
-        renderer = RequestThread(tile_path, styles, queue_handler, host_list)
-        render_thread = threading.Thread(target=renderer.loop)
-        render_thread.setDaemon(True)
-        render_thread.start()
-        logging.info("Started request thread %s", render_thread.getName())
-
-def listener(address, queue_handler):
-    from mapgang.threadedSocket import ThreadedUnixStreamServer, ThreadedUnixStreamHandler
-    # Create the server
-    server = ThreadedUnixStreamServer(address, queue_handler, ThreadedUnixStreamHandler)
-    # Loop forever servicing requests
-    server.serve_forever()
-
 def create_session(password, styles, host_list):
     import base64
     session = base64.b64encode(os.urandom(16))
@@ -205,19 +187,28 @@ if __name__ == "__main__":
     logging.basicConfig(filename=config.get("master", "log_file"), level=config.getint("master", "log_level"), format='%(asctime)s %(levelname)s: %(message)s')
 
     num_threads    = config.getint("master", "threads")
-    renderd_socket = config.get("master", "socketname")
+    socket         = config.get("master", "socket")
     tile_dir       = config.get("master", "tile_dir")
     job_server     = config.get("master", "job_server")
     password       = config.get("master", "job_password")
 
     MetaTile.path = tile_dir
-    #sessionId = create_session(password, styles, [job_server])
-    queue_handler = RequestQueues(config.getint("master", "request_limit"), config.getint("master", "dirty_limit"))
     styles = config.getStyles()
-    start_renderers(num_threads, tile_dir, styles, queue_handler, [job_server])
+    #sessionId = create_session(password, styles, [job_server])
+
     try:
-        listener(renderd_socket, queue_handler)
+        queue_handler = RequestQueues(config.getint("master", "request_limit"), config.getint("master", "dirty_limit"))
+        for i in range(num_threads):
+            renderer = RequestThread(tile_dir, styles, queue_handler, [job_server])
+            render_thread = threading.Thread(target=renderer.loop)
+            render_thread.setDaemon(True)
+            render_thread.start()
+            logging.info("Started request thread %s", render_thread.getName())
+            
+        # Create the server
+        server = ThreadedUnixStreamServer(socket, queue_handler, ThreadedUnixStreamHandler)
+        # Loop forever servicing requests
+        server.serve_forever()
     except (KeyboardInterrupt, SystemExit):
         logging.warning("terminating...")
         sys.exit()
-

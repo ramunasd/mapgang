@@ -8,7 +8,7 @@ class Config(ConfigParser):
         ConfigParser.__init__(self)
         # write defaults
         self._sections["master"] = {
-    		"socketname": "/tmp/mod_tile.sock",
+    		"socket": "/tmp/mod_tile.sock",
     		"tile_dir": "/var/lib/mod_tile",
     		"log_file": "",
     		"log_level": "10",

@@ -19,8 +19,6 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 request.send(protocol.NotDone)
             return
 
-        cur_thread = threading.currentThread()
-
         status = self.server.queue_handler.add(request)
 
         if status in ("rendering", "requested"):
@@ -63,4 +61,7 @@ class ThreadedUnixStreamServer(SocketServer.ThreadingMixIn, SocketServer.UnixStr
         SocketServer.UnixStreamServer.__init__(self, address, handler)
         self.daemon_threads = True
         os.chmod(address, 0666)
-
+        
+    def server_close(self):
+        self.socket.close()
+        os.unlink(self.address)
