@@ -22,6 +22,7 @@ class RequestThread(GearmanClient):
     priorities = {
         protocol.RenderPrio: PRIORITY_HIGH,
         protocol.RenderBulk: PRIORITY_LOW,
+        protocol.RenderLow:  PRIORITY_LOW,
         protocol.Dirty:      PRIORITY_LOW
     }
     
@@ -39,9 +40,11 @@ class RequestThread(GearmanClient):
             logging.error("No map for: '%s'", style)
             return False
         
+        priority = self.get_priotity(request)
+        logging.debug("Sending render request, priority: %s, tile: %s", priority, t)
         response = self.submit_job("render_" + style,
                                    json.dumps(t),
-                                   priority=PRIORITY_HIGH,
+                                   priority=priority,
                                    background=False)
 
         if response.state == JOB_UNKNOWN:
@@ -78,7 +81,8 @@ class RequestThread(GearmanClient):
             #Fetch a meta-tile to render
             item = self.queue_handler.fetch()
             tile = item[0]
-            rendered = self.render_request(tile, item[1])
+            request = (item[1][:1] or [None])[0]
+            rendered = self.render_request(tile, request)
             # Retrieve all requests for this meta-tile
             requests = self.queue_handler.pop_requests(tile)
             for request in requests:
