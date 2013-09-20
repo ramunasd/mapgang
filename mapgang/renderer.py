@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
-import sys, struct, time
+import sys, struct
 import logging
-import threading
 import json
 from cStringIO import StringIO
 
@@ -11,7 +10,6 @@ try:
 
     from mapgang.constants import *
     from mapgang.projection import SphericalProjection
-    from mapgang.metatile import MetaTile
 
     from gearman import GearmanWorker
 except ImportError as e:
@@ -22,7 +20,7 @@ def render_job(worker, job):
     return worker.render_job(job)
 
 class Renderer(GearmanWorker):
-    def __init__(self, host_list=None, styles = {}, stop = threading.Event()):
+    def __init__(self, host_list=None, styles = {}, stop = None):
         GearmanWorker.__init__(self, host_list)
 
         self.maps = {}
@@ -72,7 +70,7 @@ class Renderer(GearmanWorker):
 
     def render_job(self, job):
         (style, x, y, z) = json.loads(job.data)
-        logging.debug("%s got job: %s %d/%d/%d", threading.currentThread().getName(), style, z, x, y)
+        logging.info("Got job: %s %d/%d/%d", style, z, x, y)
         
         try:
             m = self.maps[style]
@@ -80,8 +78,6 @@ class Renderer(GearmanWorker):
             logging.error("No map for '%s'", style)
             self.send_job_failure(job)
             return
-        
-        s = time.clock()
         
         try:
             im = self.render_image(style, m, x, y, z)
@@ -124,6 +120,5 @@ class Renderer(GearmanWorker):
         tiles.seek(0)
         meta.write(tiles.read())
         
-        logging.info("%s completed: %s %d/%d/%d", threading.currentThread().getName(), style, z, x, y)
+        logging.info("Completed: %s %d/%d/%d", style, z, x, y)
         return meta.getvalue()
-

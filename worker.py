@@ -2,12 +2,10 @@
 
 import sys, os, time
 import logging
-import threading
 
 try:
-    #from mapgang.session import Client
-    from mapgang.renderer import Renderer
     from mapgang.config import Config
+    from mapgang.pool import WorkerPool
 except ImportError as e:
     print e
     sys.exit()
@@ -20,7 +18,7 @@ if __name__ == "__main__":
 
     config = Config(cfg_file)
 
-    num_threads = config.getint("worker", "threads")
+    num_workers = config.getint("worker", "threads")
     job_server  = config.get("master", "job_server")
     password    = config.get("master", "job_password")
     
@@ -28,25 +26,12 @@ if __name__ == "__main__":
     
     try:
         styles = config.getStyles()
-        stop = threading.Event()
-
-        for i in range(num_threads):
-            worker = Renderer([job_server], styles, stop)
-            worker_thread = threading.Thread(target=worker.work, args=(3.0,))
-            worker_thread.setDaemon(True)
-            worker_thread.start()
-            logging.info("Started worker thread %s", worker_thread.getName())
-        
+        pool = WorkerPool([job_server], styles, num_workers)
+        pool.start()
+                
         while(True):
-            time.sleep(60)
+            time.sleep(2)
+            pool.check()
     except (KeyboardInterrupt, SystemExit):
         logging.warning("terminating...")
-        stop.set()
-        main_thread = threading.currentThread()
-        # shutdown gracefully
-        for t in threading.enumerate():
-            if t is main_thread:
-                continue
-            t.join(10)
-        sys.exit()
-
+        pool.join()
