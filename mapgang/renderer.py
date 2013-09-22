@@ -3,6 +3,7 @@
 import sys, struct
 import logging
 import json
+import time
 from cStringIO import StringIO
 
 try:
@@ -20,12 +21,16 @@ def render_job(worker, job):
     return worker.render_job(job)
 
 class Renderer(GearmanWorker):
-    def __init__(self, host_list=None, styles = {}, stop = None):
+    def __init__(self, host_list=None, styles = {}, stop = None, max_jobs=1000, lifetime=3600):
         GearmanWorker.__init__(self, host_list)
 
         self.maps = {}
         self.prj = {}
         self.stop = stop
+        self.max_jobs = max_jobs
+        self.done = 0
+        self.lifetime = lifetime
+        self.started = time.time()
         
         # Projects between tile pixel co-ordinates and LatLong (EPSG:4326)
         self.tileproj = SphericalProjection(MAX_ZOOM)
@@ -42,6 +47,13 @@ class Renderer(GearmanWorker):
 
     def after_poll(self, any_activity):
         if self.stop.is_set():
+            logging.debug("Caught stop signal")
+            return False
+        if self.done >= self.max_jobs:
+            logging.debug("Max jobs limit exceeded, stopping")
+            return False
+        if time.time() - self.started > self.lifetime:
+            logging.debug("Max worker lifetime exceeded, stopping")
             return False
         return True
 
@@ -121,4 +133,5 @@ class Renderer(GearmanWorker):
         meta.write(tiles.read())
         
         logging.info("Completed: %s %d/%d/%d", style, z, x, y)
+        self.done += 1
         return meta.getvalue()

@@ -20,6 +20,8 @@ if __name__ == "__main__":
     config = Config(cfg_file)
 
     num_workers = config.getint("worker", "threads")
+    max_jobs    = config.getint("worker", "max_jobs")
+    lifetime    = config.getint("worker", "lifetime")
     job_server  = config.get("master", "job_server")
     password    = config.get("master", "job_password")
     
@@ -28,7 +30,7 @@ if __name__ == "__main__":
     try:
         styles = config.getStyles()
         def worker_factory(stop):
-            return Renderer([job_server], styles, stop)
+            return Renderer([job_server], styles, stop, max_jobs, lifetime)
         pool = WorkerPool(worker_factory, num_workers)
         pool.start()
                 

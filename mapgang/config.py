@@ -18,7 +18,9 @@ class Config(ConfigParser):
     	}
         # default worker options
         self._sections["worker"] = {
-        	"threads": "2"
+        	"threads": "2",
+            "max_jobs": "1000",
+            "lifetime": "3600"
         }
         # default runtime options for mapnik
         self._sections["mapnik"] = {
