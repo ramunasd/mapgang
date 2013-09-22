@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
 from multiprocessing import Process, Event
-from mapgang.renderer import Renderer
-import logging
 
 class WorkerPool(object):
     """
@@ -12,18 +10,16 @@ class WorkerPool(object):
     
     """
     
-    def __init__(self, servers, styles, size=2):
+    def __init__(self, factory, size=2):
         self.processes = {}
-        self.servers = servers
-        self.styles = styles
+        self.factory = factory
         self.size = size
         self.stop = Event()
         
     def start(self):
         for i in xrange(self.size - len(self.processes)):
             p = Worker()
-            p.servers = self.servers
-            p.styles = self.styles
+            p.factory = self.factory
             p.stop = self.stop
             p.start()
             self.processes[p.pid] = p
@@ -52,8 +48,8 @@ class WorkerPool(object):
 class Worker(Process):
     def run(self):
         try:
-            renderer = Renderer(self.servers, self.styles, self.stop)
-            renderer.work()
+            self.worker = self.factory(self.stop)
+            self.worker.work()
         except (Exception, KeyboardInterrupt, SystemExit):
             return
     

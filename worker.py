@@ -6,6 +6,7 @@ import logging
 try:
     from mapgang.config import Config
     from mapgang.pool import WorkerPool
+    from mapgang.renderer import Renderer
 except ImportError as e:
     print e
     sys.exit()
@@ -26,7 +27,9 @@ if __name__ == "__main__":
     
     try:
         styles = config.getStyles()
-        pool = WorkerPool([job_server], styles, num_workers)
+        def worker_factory(stop):
+            return Renderer([job_server], styles, stop)
+        pool = WorkerPool(worker_factory, num_workers)
         pool.start()
                 
         while(True):
