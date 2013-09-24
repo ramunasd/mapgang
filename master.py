@@ -41,10 +41,14 @@ class RequestThread(GearmanClient):
         
         priority = self.get_priotity(request)
         logging.debug("Sending render request, priority: %s, tile: %s", priority, t)
-        response = self.submit_job("render_" + style,
+        try:
+            response = self.submit_job("render_" + style,
                                    json.dumps(t),
-                                   priority=priority,
-                                   background=False)
+                                   priority=priority, background=False,
+                                   max_retries=3)
+        except Exception, e:
+            logging.critical(e)
+            return False
 
         if response.state == JOB_UNKNOWN:
             logging.warning("Job %s connection failed!", response.unique)
