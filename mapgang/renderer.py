@@ -1,17 +1,16 @@
 #!/usr/bin/python
 
-import sys, struct
+import sys
 import logging
 import json
 import time
-from cStringIO import StringIO
 
 try:
     import mapnik
 
     from mapgang.constants import *
     from mapgang.projection import SphericalProjection
-
+    from mapgang.metatile import MetaTile
     from gearman import GearmanWorker
 except ImportError as e:
     print e
@@ -82,7 +81,8 @@ class Renderer(GearmanWorker):
 
     def render_job(self, job):
         (style, x, y, z) = json.loads(job.data)
-        logging.info("Got job: %s %d/%d/%d", style, z, x, y)
+        t = MetaTile(style, x, y, z)
+        logging.info("Got job: %s", t.to_string())
         
         try:
             m = self.maps[style]
@@ -94,44 +94,18 @@ class Renderer(GearmanWorker):
         try:
             im = self.render_image(style, m, x, y, z)
             size = min(METATILE, 1 << z)
-            offset = len(META_MAGIC) + 4 * 4
-            # Need to pre-compensate the offsets for the size of the offset/size table we are about to write
-            offset += (2 * 4) * (METATILE * METATILE)
-            # Collect all the tile sizes
-            sizes = {}
-            offsets = {}
-            
-            # tiles buffer
-            tiles = StringIO()
             mask = METATILE - 1
             for xx in range(size):
                 for yy in range(size):
                     mt = ((x+xx) & mask) * METATILE + ((y+yy) & mask)
                     view = im.view(xx * TILE_SIZE , yy * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                     tile = view.tostring('png256:z=3')
-                    tiles.write(tile)
-                    sizes[mt] = len(tile)
-                    offsets[mt] = offset
-                    offset += len(tile)
+                    t.write_tile(mt, tile)
         except Exception, e:
             logging.critical(e)
             self.send_job_failure(job)
             return
 
-        # meta tile file
-        meta = StringIO()
-        # write header
-        meta.write(struct.pack("4s4i", META_MAGIC, METATILE * METATILE, x, y, z))
-        # Write out the offset/size table
-        for mt in range(0, METATILE * METATILE):
-            if mt in sizes:
-                meta.write(struct.pack("2i", offsets[mt], sizes[mt]))
-            else:
-                meta.write(struct.pack("2i", 0, 0))
-        # write tiles data
-        tiles.seek(0)
-        meta.write(tiles.read())
-        
-        logging.info("Completed: %s %d/%d/%d", style, z, x, y)
+        logging.info("Completed: %s", t.to_string())
         self.done += 1
-        return meta.getvalue()
+        return t.getvalue()

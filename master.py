@@ -15,8 +15,8 @@ except ImportError:
 from mapgang.protocol import protocol
 from mapgang.session import Issuer
 from mapgang.config import Config
-from mapgang.metatile import MetaTile
 from mapgang.threadedSocket import ThreadedUnixStreamServer, ThreadedUnixStreamHandler
+from mapgang.storage.disk import Disk
 
 class RequestThread(GearmanClient):
     priorities = {
@@ -26,8 +26,7 @@ class RequestThread(GearmanClient):
         protocol.Dirty:      PRIORITY_LOW
     }
     
-    def __init__(self, tile_path, styles, queue_handler, host_list):
-        self.tile_path = tile_path
+    def __init__(self, styles, queue_handler, host_list):
         self.queue_handler = queue_handler
         self.styles = styles
         GearmanClient.__init__(self, host_list)
@@ -62,13 +61,7 @@ class RequestThread(GearmanClient):
         return False;
 
     def save_tiles(self, style, x, y, z, tiles):
-        # Calculate the meta tile size to use for this zoom level
-        tile_path = MetaTile.get_path(style, x, y, z)
-        f = os.open(tile_path, os.O_WRONLY | os.O_CREAT)
-        os.write(f, tiles)
-        os.close(f)
-        logging.debug("Wrote meta tile %s", tile_path)
-        return True
+        return storage.write(style, x, y, z, tiles)
     
     def get_priotity(self, request):
         if request.command in self.priorities:
@@ -196,14 +189,16 @@ if __name__ == "__main__":
     job_server     = config.get("master", "job_server")
     password       = config.get("master", "job_password")
 
-    MetaTile.path = tile_dir
+    storage = Disk()
+    storage.set_path(tile_dir)
+    
     styles = config.getStyles()
     #sessionId = create_session(password, styles, [job_server])
 
     try:
         queue_handler = RequestQueues(config.getint("master", "request_limit"), config.getint("master", "dirty_limit"))
         for i in range(num_threads):
-            renderer = RequestThread(tile_dir, styles, queue_handler, [job_server])
+            renderer = RequestThread(styles, queue_handler, [job_server])
             render_thread = threading.Thread(target=renderer.loop)
             render_thread.setDaemon(True)
             render_thread.start()

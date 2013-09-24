@@ -1,34 +1,50 @@
 #!/usr/bin/python
 
-import os, struct
-from mapgang.constants import METATILE, META_MAGIC
+import struct
+from cStringIO import StringIO
+from mapgang.constants import METATILE
+
+META_MAGIC = "meta"
 
 class MetaTile():
-    path = '/var/lib/mod_tile'
-
-    @staticmethod
-    def get_path(style, x, y, z):
-        mask = METATILE - 1
-        x &= ~mask
-        y &= ~mask
-        hashes = {}
-        for i in range(5):
-            hashes[i] = ((x & 0x0f) << 4) | (y & 0x0f)
-            x >>= 4
-            y >>= 4
-
-        path = "%s/%s/%d/%u/%u/%u/%u/%u.meta" % (MetaTile.path, style, z, hashes[4], hashes[3], hashes[2], hashes[1], hashes[0])
-        d = os.path.dirname(path)
-        if not os.path.exists(d):
-            try:
-                os.makedirs(d, 0777)
-            except OSError:
-                # Multiple threads can race when creating directories,
-                # ignore exception if the directory now exists
-                if not os.path.exists(d):
-                    raise
-        return path
-
-    @staticmethod
-    def get_header(self, x, y, z):
-        return struct.pack("4s4i", META_MAGIC, METATILE * METATILE, x, y, z)
+    def __init__(self, style, x, y, z):
+        self.style = style
+        self.x = x
+        self.y = y
+        self.z = z
+        self.content = StringIO()
+        # fill header with zeros
+        offset = len(META_MAGIC) + 4 * 4
+        # Need to pre-compensate the offsets for the size of the offset/size table we are about to write
+        offset += (2 * 4) * (METATILE * METATILE)
+        self.content.seek(self.offset)
+        self.sizes = {}
+        self.offsets = {}
+    
+    def get_header(self):
+        return struct.pack("4s4i", META_MAGIC, METATILE * METATILE, self.x, self.y, self.z)
+    
+    def write_header(self):
+        self.content.seek(0)
+        # write header
+        self.content.write(self.get_header())
+        # Write out the offset/size table
+        for n in range(0, METATILE * METATILE):
+            if n in self.sizes:
+                self.content.write(struct.pack("2i", self.offsets[n], self.sizes[n]))
+            else:
+                self.content.write(struct.pack("2i", 0, 0))
+        
+    def write_tile(self, n, tile):
+        # seek to end
+        self.content.seek(0, 2)
+        self.offsets[n] = self.content.tell()
+        self.content.write(tile)
+        self.sizes[n] = len(tile)
+    
+    def getvalue(self):
+        self.write_header()
+        return self.content.getvalue()
+    
+    def to_string(self):
+        return "%s/%d/%d/%d" % (self.style, self.z, self.x, self.y)
