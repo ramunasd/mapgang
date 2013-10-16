@@ -72,7 +72,7 @@ class ProtocolPacket:
         return (self.xmlname, self.mx, self.my, self.z)
     
     def to_string(self):
-        return "%s %s, %u/%u/%u" % (protocol.titles[self.command], self.xmlname, self.z, self.x, self.y)
+        return "%s %s/%u/%u/%u" % (protocol.titles[self.command], self.xmlname, self.z, self.x, self.y)
 
 class ProtocolPacketV2(ProtocolPacket):
     def __init__(self):
@@ -89,7 +89,7 @@ class ProtocolPacketV2(ProtocolPacket):
             self.y = y
             self.z = z
             self.xmlname = xmlname.rstrip('\000') # Remove trailing NULs
-            logging.info("Got request: %s", self.to_string())
+            logging.debug("Got request: %s", self.to_string())
             # Calculate Meta-tile value for this x/y
             self.mx = x & ~(METATILE-1)
             self.my = y & ~(METATILE-1)

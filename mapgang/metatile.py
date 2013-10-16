@@ -17,7 +17,7 @@ class MetaTile():
         offset = len(META_MAGIC) + 4 * 4
         # Need to pre-compensate the offsets for the size of the offset/size table we are about to write
         offset += (2 * 4) * (METATILE * METATILE)
-        self.content.seek(self.offset)
+        self.content.seek(offset)
         self.sizes = {}
         self.offsets = {}
     

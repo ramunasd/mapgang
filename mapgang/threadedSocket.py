@@ -21,10 +21,14 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
 
         status = self.server.queue_handler.add(request)
 
+        if status in ("rendering", "dropped"):
+            request.send(protocol.Ignore)
+
         if status in ("rendering", "requested"):
             # Request queued, response will be sent on completion
             return
-        if status == protocol.Ignore:
+        if status == "dirty":
+            request.send
             return
 
     def handle(self):
