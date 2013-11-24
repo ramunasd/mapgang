@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
 import os
+import struct
 import socket
 import errno
 import logging
 import threading
 import SocketServer
 
-from mapgang.protocol import protocol, ProtocolPacketV2
+from mapgang.protocol import protocol, VER_LENGTH
 
 class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
     def rx_request(self, request):
@@ -19,49 +20,60 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 request.send(protocol.NotDone)
             return
 
-        status = self.server.queue_handler.add(request)
+        status = self.server.queue.add(request)
 
         if status in ("rendering", "dropped"):
             request.send(protocol.Ignore)
 
-        if status in ("rendering", "requested"):
+        if status in ("requested"):
             # Request queued, response will be sent on completion
-            return
-        if status == "dirty":
-            request.send
             return
 
     def handle(self):
         cur_thread = threading.currentThread()
-        max_len = ProtocolPacketV2().len()
 
         while True:
             try:
-                data = self.request.recv(max_len)
+                # receive first integer - protocol version
+                data = self.request.recv(VER_LENGTH)
             except socket.error, e:
                 if e[0] == errno.ECONNRESET:
-                    logging.info("Connection reset by peer")
+                    logging.info("%s: Connection reset by peer", cur_thread.getName())
                     break
                 else:
                     raise
 
-            if len(data) == max_len:
-                req_v2 = ProtocolPacketV2()
-                req_v2.receive(data, self.request)
-                self.rx_request(req_v2)
-            elif len(data) == 0:
+            l = len(data)
+            if l == 0:
                 logging.info("%s: Connection closed", cur_thread.getName())
+                break;
+
+            t = struct.unpack("1i", data)
+            ver = t[0]
+            req = protocol.getProtocolByVersion(ver)
+            if not req:
+                logging.warn("%s: Invalid request version %s", cur_thread.getName(), ver)
                 break
-            else:
-                logging.warn("Invalid request length %d", len(data))
-                break
+            
+            try:
+                # receive remaining data
+                data = self.request.recv(req.len())
+            except socket.error, e:
+                if e[0] == errno.ECONNRESET:
+                    logging.info("%s: Connection reset by peer", cur_thread.getName())
+                    break
+                else:
+                    raise
+            
+            req.receive(data, self.request)
+            self.rx_request(req)
 
 class ThreadedUnixStreamServer(SocketServer.ThreadingMixIn, SocketServer.UnixStreamServer):
-    def __init__(self, address, queue_handler, handler):
+    def __init__(self, address, queue, handler):
         if(os.path.exists(address)):
             os.unlink(address)
         self.address = address
-        self.queue_handler = queue_handler
+        self.queue = queue
         SocketServer.UnixStreamServer.__init__(self, address, handler)
         self.daemon_threads = True
         os.chmod(address, 0666)
