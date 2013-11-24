@@ -94,13 +94,11 @@ class Renderer(GearmanWorker):
         try:
             im = self.render_image(style, m, x, y, z)
             size = min(METATILE, 1 << z)
-            mask = METATILE - 1
             for xx in range(size):
                 for yy in range(size):
-                    mt = ((x+xx) & mask) * METATILE + ((y+yy) & mask)
                     view = im.view(xx * TILE_SIZE , yy * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                     tile = view.tostring('png256:z=3')
-                    t.write_tile(mt, tile)
+                    t.write_tile(xx, yy, tile)
         except Exception, e:
             logging.critical(e)
             self.send_job_failure(job)

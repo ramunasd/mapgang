@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
+import os
 import struct
 from cStringIO import StringIO
-from mapgang.constants import METATILE
-
-META_MAGIC = "meta"
+from mapgang.constants import METATILE, META_MAGIC
 
 class MetaTile():
     def __init__(self, style, x, y, z):
@@ -13,11 +12,11 @@ class MetaTile():
         self.y = y
         self.z = z
         self.content = StringIO()
-        # fill header with zeros
-        offset = len(META_MAGIC) + 4 * 4
-        # Need to pre-compensate the offsets for the size of the offset/size table we are about to write
-        offset += (2 * 4) * (METATILE * METATILE)
-        self.content.seek(offset)
+        m2 = METATILE * METATILE
+        # space for header
+        self.content.write(struct.pack("4s4i", META_MAGIC, m2, 0, 0, 0))
+        # space for offset/size table
+        self.content.write(struct.pack("2i", 0, 0) * m2)
         self.sizes = {}
         self.offsets = {}
     
@@ -34,12 +33,17 @@ class MetaTile():
                 self.content.write(struct.pack("2i", self.offsets[n], self.sizes[n]))
             else:
                 self.content.write(struct.pack("2i", 0, 0))
-        
-    def write_tile(self, n, tile):
+
+    def write_tile(self, x, y, tile):
+        mask = METATILE - 1
+        n = (x & mask) * METATILE + (y & mask)
         # seek to end
-        self.content.seek(0, 2)
+        self.content.seek(0, os.SEEK_END)
+        # mark offset
         self.offsets[n] = self.content.tell()
+        # write content
         self.content.write(tile)
+        # mark size
         self.sizes[n] = len(tile)
     
     def getvalue(self):
